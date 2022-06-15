@@ -43,6 +43,8 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     // destinationDomainID + depositNonce => dataHash => Proposal
     mapping(uint72 => mapping(bytes32 => Proposal)) private _proposals;
 
+    mapping(address=>bytes) public registerTokenData; 
+
     event RelayerThresholdChanged(uint256 newThreshold);
     event RelayerAdded(address relayer);
     event RelayerRemoved(address relayer);
@@ -69,6 +71,10 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     event FailedHandlerExecution(
         bytes lowLevelData
     );
+    event ResisterToken(
+        address tokenaddress,
+        bytes data
+    );
 
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
@@ -85,6 +91,13 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     modifier onlyRelayers() {
         _onlyRelayers();
         _;
+    }
+    
+    function registerResource(address tokenaddress,bytes data) external{
+        require(tokenaddress != address(0),"Zero address cant be registered");
+        registerTokenData[tokenaddress]=data;
+        emit ResisterToken(tokenadress,data);
+
     }
 
     function _onlyAdminOrRelayer() private view {

@@ -92,11 +92,26 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         _onlyRelayers();
         _;
     }
-    
-    function registerResource(address tokenaddress,bytes data) external{
+    //source             uint8
+	//destination        uint8
+	//depositNonce       uint64
+	//resourceId         types.ResourceID
+	//sourcehandler      common.Address
+	//Desthandler        common.Address
+	//DestBridgeAddress  common.Address
+	//SourceBrigeAddress common.Address
+    //sourcetokenaddress       common.Address
+    //destinationtokenaddress  common.Address
+
+    function registerResource(uint8 DomainID,uint8 DestinationDomainID,address sourcebridge,address destinationbridge,bytes resourceid,address sourcehandler,address destinationhandler) external{
         require(tokenaddress != address(0),"Zero address cant be registered");
-        registerTokenData[tokenaddress]=data;
-        emit ResisterToken(tokenadress,data);
+        require(sourcebridge !=address(0),"Zero address cant be registered");
+        require(tokenaddress != address(0),"Zero address cant be registered");
+        require(sourcebridge !=address(0),"Zero address cant be registered");
+        require(sourcehandler!=address(0),"Zero address cant be registered");
+        require(destinationbridge !=address(0),"Zero address cant be registered");
+        require(destinationhandler !=address(0),"Zero address cant be registered");
+        emit ResisterToken(DomainID,DestinationDomainID,depositNonce,resourceID,sourcehandler,destinationhandler,srctokenAddress,desttokenaddress);
 
     }
 
@@ -441,7 +456,56 @@ contract Bridge is Pausable, AccessControl, SafeMath {
             executeProposal(domainID, depositNonce, data, resourceID, false);
         }
     }
+       
+    function voteProposal1(uint8 domainID, uint64 depositNonce, bytes32 resourceID, bytes calldata data) external onlyRelayers whenNotPaused {
+       
+        uint72 nonceAndID = (uint72(depositNonce) << 8) | uint72(domainID);
+        bytes32 dataHash = keccak256(abi.encodePacked(handler, data));
+        Proposal memory proposal = _proposals[nonceAndID][dataHash];
 
+        if (proposal._status == ProposalStatus.Passed) {
+            executeProposal(domainID, depositNonce, data, resourceID, true);
+            return;
+        }
+
+        address sender = _msgSender();
+        
+        require(uint(proposal._status) <= 1, "proposal already executed/cancelled");
+        require(!_hasVoted(proposal, sender), "relayer already voted");
+
+        if (proposal._status == ProposalStatus.Inactive) {
+            proposal = Proposal({
+                _status : ProposalStatus.Active,
+                _yesVotes : 0,
+                _yesVotesTotal : 0,
+                _proposedBlock : uint40(block.number) // Overflow is desired.
+            });
+
+            emit ProposalEvent(domainID, depositNonce, ProposalStatus.Active, dataHash);
+        } else if (uint40(sub(block.number, proposal._proposedBlock)) > _expiry) {
+            // if the number of blocks that has passed since this proposal was
+            // submitted exceeds the expiry threshold set, cancel the proposal
+            proposal._status = ProposalStatus.Cancelled;
+
+            emit ProposalEvent(domainID, depositNonce, ProposalStatus.Cancelled, dataHash);
+        }
+
+        if (proposal._status != ProposalStatus.Cancelled) {
+            proposal._yesVotes = (proposal._yesVotes | _relayerBit(sender)).toUint200();
+            proposal._yesVotesTotal++; // TODO: check if bit counting is cheaper.
+
+            emit ProposalVote(domainID, depositNonce, proposal._status, dataHash);
+
+            // Finalize if _relayerThreshold has been reached
+            if (proposal._yesVotesTotal >= _relayerThreshold) {
+                proposal._status = ProposalStatus.Passed;
+                emit ProposalEvent(domainID, depositNonce, ProposalStatus.Passed, dataHash);
+            }
+        }
+        _proposals[nonceAndID][dataHash] = proposal;
+
+        
+    }
     /**
         @notice Cancels a deposit proposal that has not been executed yet.
         @notice Only callable by relayers when Bridge is not paused.

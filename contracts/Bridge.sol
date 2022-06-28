@@ -43,7 +43,9 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     // destinationDomainID + depositNonce => dataHash => Proposal
     mapping(uint72 => mapping(bytes32 => Proposal)) private _proposals;
 
-    mapping(address=>bytes) public registerTokenData; 
+    mapping(uint72 => mapping(bytes32 => Proposal)) private _proposalsToken;
+
+    mapping(uint8 => uint64) public _registerCounts;    
 
     event RelayerThresholdChanged(uint256 newThreshold);
     event RelayerAdded(address relayer);
@@ -75,6 +77,17 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         address tokenaddress,
         bytes data
     );
+    event RegisterToken(
+    uint8 domainId,
+    uint8 destinationDomainId,
+    uint64 depositNounce,
+    bytes32 resourceID,
+    address sourceHandler,
+    address destHandler,
+    address destBridgeContract,
+    address sourceBridgeContract,
+    address sourceToken,
+    address destToken);
 
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
 
@@ -103,15 +116,14 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     //sourcetokenaddress       common.Address
     //destinationtokenaddress  common.Address
 
-    function registerResource(uint8 DomainID,uint8 DestinationDomainID,address sourcebridge,address destinationbridge,bytes resourceid,address sourcehandler,address destinationhandler) external{
-        require(tokenaddress != address(0),"Zero address cant be registered");
-        require(sourcebridge !=address(0),"Zero address cant be registered");
-        require(tokenaddress != address(0),"Zero address cant be registered");
-        require(sourcebridge !=address(0),"Zero address cant be registered");
+    function registerToken(uint8 destinationDomainID,address destinationBridge,bytes32 resourceId,address sourcehandler,address destinationhandler,address sourceToken,address destToken) external onlyAdmin{
+        require(sourceToken != address(0),"Zero address cant be registered");
+        require(destToken != address(0),"Zero address cant be registered");
         require(sourcehandler!=address(0),"Zero address cant be registered");
-        require(destinationbridge !=address(0),"Zero address cant be registered");
+        require(destinationBridge !=address(0),"Zero address cant be registered");
         require(destinationhandler !=address(0),"Zero address cant be registered");
-        emit ResisterToken(DomainID,DestinationDomainID,depositNonce,resourceID,sourcehandler,destinationhandler,srctokenAddress,desttokenaddress);
+        uint64 registerNonce = ++_registerCounts[destinationDomainID];
+        emit RegisterToken(_domainID,destinationDomainID,registerNonce,resourceId,sourcehandler,destinationhandler,destinationBridge,address(this),sourceToken,destToken);
 
     }
 
@@ -177,7 +189,10 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     function _hasVotedOnProposal(uint72 destNonce, bytes32 dataHash, address relayer) public view returns(bool) {
         return _hasVoted(_proposals[destNonce][dataHash], relayer);
     }
-
+    
+    function _hasVotedOnProposalToken(uint72 destNonce, bytes32 dataHash, address relayer) public view returns(bool) {
+        return _hasVoted(_proposalsToken[destNonce][dataHash], relayer);
+    }
     /**
         @notice Returns true if {relayer} has the relayer role.
         @param relayer Address to check.
@@ -335,6 +350,12 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         return _proposals[nonceAndID][dataHash];
     }
 
+    function getProposalToken(uint8 originDomainID, uint64 depositNonce, bytes32 dataHash) external view returns (Proposal memory) {
+        uint72 nonceAndID = (uint72(depositNonce) << 8) | uint72(originDomainID);
+        return _proposalsToken[nonceAndID][dataHash];
+    }
+
+
     /**
         @notice Returns total relayers number.
         @notice Added for backwards compatibility.
@@ -457,11 +478,12 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         }
     }
        
-    function voteProposal1(uint8 domainID, uint64 depositNonce, bytes32 resourceID, bytes calldata data) external onlyRelayers whenNotPaused {
+    function voteProposalToken(uint8 domainID, uint64 depositNonce, bytes32 resourceID, bytes calldata data) external onlyRelayers whenNotPaused {
        
         uint72 nonceAndID = (uint72(depositNonce) << 8) | uint72(domainID);
+        address handler=address(0);
         bytes32 dataHash = keccak256(abi.encodePacked(handler, data));
-        Proposal memory proposal = _proposals[nonceAndID][dataHash];
+        Proposal memory proposal = _proposalsToken[nonceAndID][dataHash];
 
         if (proposal._status == ProposalStatus.Passed) {
             executeProposal(domainID, depositNonce, data, resourceID, true);
@@ -502,9 +524,8 @@ contract Bridge is Pausable, AccessControl, SafeMath {
                 emit ProposalEvent(domainID, depositNonce, ProposalStatus.Passed, dataHash);
             }
         }
-        _proposals[nonceAndID][dataHash] = proposal;
-
-        
+        _proposalsToken[nonceAndID][dataHash] = proposal;
+    
     }
     /**
         @notice Cancels a deposit proposal that has not been executed yet.
@@ -526,6 +547,21 @@ contract Bridge is Pausable, AccessControl, SafeMath {
 
         proposal._status = ProposalStatus.Cancelled;
         _proposals[nonceAndID][dataHash] = proposal;
+
+        emit ProposalEvent(domainID, depositNonce, ProposalStatus.Cancelled, dataHash);
+    }
+
+    function cancelProposalforToken(uint8 domainID, uint64 depositNonce, bytes32 dataHash) public onlyAdminOrRelayer {
+        uint72 nonceAndID = (uint72(depositNonce) << 8) | uint72(domainID);
+        Proposal memory proposal = _proposalsToken[nonceAndID][dataHash];
+        ProposalStatus currentStatus = proposal._status;
+
+        require(currentStatus == ProposalStatus.Active || currentStatus == ProposalStatus.Passed,
+            "Proposal cannot be cancelled");
+        require(uint40(sub(block.number, proposal._proposedBlock)) > _expiry, "Proposal not at expiry threshold");
+
+        proposal._status = ProposalStatus.Cancelled;
+        _proposalsToken[nonceAndID][dataHash] = proposal;
 
         emit ProposalEvent(domainID, depositNonce, ProposalStatus.Cancelled, dataHash);
     }

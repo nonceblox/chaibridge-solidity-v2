@@ -14,6 +14,7 @@ import "./interfaces/IGenericHandler.sol";
     @title Facilitates deposits, creation and voting of deposit proposals, and deposit executions.
     @author ChainSafe Systems.
  */
+ 
 contract Bridge is Pausable, AccessControl, SafeMath {
     using SafeCast for *;
 
@@ -73,15 +74,12 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     event FailedHandlerExecution(
         bytes lowLevelData
     );
-    event ResisterToken(
-        address tokenaddress,
-        bytes data
-    );
+    
     event RegisterToken(
     uint8 domainId,
     uint8 destinationDomainId,
     uint64 depositNounce,
-    bytes32 resourceID,
+    bytes32 resource,
     address sourceHandler,
     address destHandler,
     address destBridgeContract,
@@ -229,24 +227,13 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         _unpause(_msgSender());
     }
 
-    /**
-        @notice Modifies the number of votes required for a proposal to be considered passed.
-        @notice Only callable by an address that currently has the admin role.
-        @param newThreshold Value {_relayerThreshold} will be changed to.
-        @notice Emits {RelayerThresholdChanged} event.
-     */
+   
     function adminChangeRelayerThreshold(uint256 newThreshold) external onlyAdmin {
         _relayerThreshold = newThreshold.toUint8();
         emit RelayerThresholdChanged(newThreshold);
     }
 
-    /**
-        @notice Grants {relayerAddress} the relayer role.
-        @notice Only callable by an address that currently has the admin role, which is
-                checked in grantRole().
-        @param relayerAddress Address of relayer to be added.
-        @notice Emits {RelayerAdded} event.
-     */
+    
     function adminAddRelayer(address relayerAddress) external {
         require(!hasRole(RELAYER_ROLE, relayerAddress), "addr already has relayer role!");
         require(_totalRelayers() < MAX_RELAYERS, "relayers limit reached");
@@ -254,28 +241,15 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         emit RelayerAdded(relayerAddress);
     }
 
-    /**
-        @notice Removes relayer role for {relayerAddress}.
-        @notice Only callable by an address that currently has the admin role, which is
-                checked in revokeRole().
-        @param relayerAddress Address of relayer to be removed.
-        @notice Emits {RelayerRemoved} event.
-     */
+    
     function adminRemoveRelayer(address relayerAddress) external {
         require(hasRole(RELAYER_ROLE, relayerAddress), "addr doesn't have relayer role!");
         revokeRole(RELAYER_ROLE, relayerAddress);
         emit RelayerRemoved(relayerAddress);
     }
 
-    /**
-        @notice Sets a new resource for handler contracts that use the IERCHandler interface,
-        and maps the {handlerAddress} to {resourceID} in {_resourceIDToHandlerAddress}.
-        @notice Only callable by an address that currently has the admin role.
-        @param handlerAddress Address of handler resource will be set for.
-        @param resourceID ResourceID to be used when making deposits.
-        @param tokenAddress Address of contract to be called when a deposit is made and a deposited is executed.
-     */
-    function adminSetResource(address handlerAddress, bytes32 resourceID, address tokenAddress) external onlyAdmin {
+   
+    function adminSetResource(address handlerAddress, bytes32 resourceID, address tokenAddress) external onlyAdminOrRelayer {
         _resourceIDToHandlerAddress[resourceID] = handlerAddress;
         IERCHandler handler = IERCHandler(handlerAddress);
         handler.setResource(resourceID, tokenAddress);
@@ -308,7 +282,7 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         @param handlerAddress Address of handler resource will be set for.
         @param tokenAddress Address of contract to be called when a deposit is made and a deposited is executed.
      */
-    function adminSetBurnable(address handlerAddress, address tokenAddress) external onlyAdmin {
+    function adminSetBurnable(address handlerAddress, address tokenAddress) external onlyAdminOrRelayer {
         IERCHandler handler = IERCHandler(handlerAddress);
         handler.setBurnable(tokenAddress);
     }
@@ -354,7 +328,6 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         uint72 nonceAndID = (uint72(depositNonce) << 8) | uint72(originDomainID);
         return _proposalsToken[nonceAndID][dataHash];
     }
-
 
     /**
         @notice Returns total relayers number.
@@ -484,10 +457,11 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         address handler=address(0);
         bytes32 dataHash = keccak256(abi.encodePacked(handler, data));
         Proposal memory proposal = _proposalsToken[nonceAndID][dataHash];
-
+        
         if (proposal._status == ProposalStatus.Passed) {
-            executeProposal(domainID, depositNonce, data, resourceID, true);
-            return;
+            //executeProposal(domainID, depositNonce, data, resourceID, true);
+            revert("Already passed praposal") ;
+            
         }
 
         address sender = _msgSender();

@@ -79,7 +79,6 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     uint8 domainId,
     uint8 destinationDomainId,
     uint64 depositNounce,
-    bytes32 resource,
     address sourceHandler,
     address destHandler,
     address destBridgeContract,
@@ -88,6 +87,8 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     address destToken);
 
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    bytes32 public constant TOKEN_APPROVER_ROLE = keccak256("TOKEN_APPROVER_ROLE");
+    
 
     modifier onlyAdmin() {
         _onlyAdmin();
@@ -103,6 +104,10 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         _onlyRelayers();
         _;
     }
+    modifier onlyTokenApprover(){
+        _onlyTokenApprover();
+        _;
+    }
     //source             uint8
 	//destination        uint8
 	//depositNonce       uint64
@@ -114,14 +119,14 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     //sourcetokenaddress       common.Address
     //destinationtokenaddress  common.Address
 
-    function registerToken(uint8 destinationDomainID,address destinationBridge,bytes32 resourceId,address sourcehandler,address destinationhandler,address sourceToken,address destToken) external onlyAdmin{
+    function registerToken(uint8 destinationDomainID,address destinationBridge,address sourcehandler,address destinationhandler,address sourceToken,address destToken) external onlyTokenApprover{
         require(sourceToken != address(0),"Zero address cant be registered");
         require(destToken != address(0),"Zero address cant be registered");
         require(sourcehandler!=address(0),"Zero address cant be registered");
         require(destinationBridge !=address(0),"Zero address cant be registered");
         require(destinationhandler !=address(0),"Zero address cant be registered");
         uint64 registerNonce = ++_registerCounts[destinationDomainID];
-        emit RegisterToken(_domainID,destinationDomainID,registerNonce,resourceId,sourcehandler,destinationhandler,destinationBridge,address(this),sourceToken,destToken);
+        emit RegisterToken(_domainID,destinationDomainID,registerNonce,sourcehandler,destinationhandler,destinationBridge,address(this),sourceToken,destToken);
 
     }
 
@@ -137,6 +142,10 @@ contract Bridge is Pausable, AccessControl, SafeMath {
 
     function _onlyRelayers() private view {
         require(hasRole(RELAYER_ROLE, _msgSender()), "sender doesn't have relayer role");
+    }
+
+    function _onlyTokenApprover() private view {
+        require(hasRole(TOKEN_APPROVER_ROLE, _msgSender()), "sender doesn't have token approver role");
     }
 
     function _relayerBit(address relayer) private view returns(uint) {
@@ -176,7 +185,7 @@ contract Bridge is Pausable, AccessControl, SafeMath {
             grantRole(RELAYER_ROLE, initialRelayers[i]);
         }
     }
-
+         
     /**
         @notice Returns true if {relayer} has voted on {destNonce} {dataHash} proposal.
         @notice Naming left unchanged for backward compatibility.
@@ -249,7 +258,8 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     }
 
    
-    function adminSetResource(address handlerAddress, bytes32 resourceID, address tokenAddress) external onlyAdminOrRelayer {
+    function adminSetResource(address handlerAddress, bytes32 resourceID, address tokenAddress) public onlyAdminOrRelayer {
+        require(_resourceIDToHandlerAddress[resourceID]!=handlerAddress,"addr already added");
         _resourceIDToHandlerAddress[resourceID] = handlerAddress;
         IERCHandler handler = IERCHandler(handlerAddress);
         handler.setResource(resourceID, tokenAddress);
@@ -282,7 +292,7 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         @param handlerAddress Address of handler resource will be set for.
         @param tokenAddress Address of contract to be called when a deposit is made and a deposited is executed.
      */
-    function adminSetBurnable(address handlerAddress, address tokenAddress) external onlyAdminOrRelayer {
+    function adminSetBurnable(address handlerAddress, address tokenAddress) public onlyAdminOrRelayer {
         IERCHandler handler = IERCHandler(handlerAddress);
         handler.setBurnable(tokenAddress);
     }
@@ -451,19 +461,19 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         }
     }
        
-    function voteProposalToken(uint8 domainID, uint64 depositNonce, bytes32 resourceID, bytes calldata data) external onlyRelayers whenNotPaused {
+    function voteProposalToken(uint8 domainID, uint64 depositNonce, bytes32 resourceID, bytes calldata data,address tokenAddress,address handler) external onlyRelayers whenNotPaused {
        
         uint72 nonceAndID = (uint72(depositNonce) << 8) | uint72(domainID);
-        address handler=address(0);
-        bytes32 dataHash = keccak256(abi.encodePacked(handler, data));
+        bytes32 dataHash = keccak256(abi.encodePacked(handler,tokenAddress,depositNonce));
         Proposal memory proposal = _proposalsToken[nonceAndID][dataHash];
         
         if (proposal._status == ProposalStatus.Passed) {
-            //executeProposal(domainID, depositNonce, data, resourceID, true);
-            revert("Already passed praposal") ;
             
+            adminSetResource(handler,resourceID,tokenAddress);
+            adminSetBurnable(handler,tokenAddress);
+            proposal._status = ProposalStatus.Executed;
+            emit ProposalEvent(domainID, depositNonce, ProposalStatus.Executed, dataHash);
         }
-
         address sender = _msgSender();
         
         require(uint(proposal._status) <= 1, "proposal already executed/cancelled");
@@ -577,6 +587,7 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         
         emit ProposalEvent(domainID, depositNonce, ProposalStatus.Executed, dataHash);
     }
+     
 
     /**
         @notice Transfers eth in the contract to the specified addresses. The parameters addrs and amounts are mapped 1-1.
@@ -590,3 +601,4 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         }
     }
 }
+

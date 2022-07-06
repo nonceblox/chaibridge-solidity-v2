@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.11;
 
 /**
@@ -23,4 +24,16 @@ interface IERCHandler {
         @param data ABI-encoded withdrawal params relevant to the handler.
      */
     function withdraw(bytes memory data) external;
+
+
+    function removeResource(bytes32 resourceID, address contractAddress) external;
+
+    function setResourceAndBurnable(bytes32 resourceID, address contractAddress) external;
+
+    /**
+        @notice Exposing getter for {_resourceIDToTokenContractAddress}.
+        @param resourceID ResourceID to be used.
+        @return address The {tokenContractAddress} that is currently set for the resourceID.
+     */
+    function _resourceIDToTokenContractAddress(bytes32 resourceID) external view returns (address);
 }

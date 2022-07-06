@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.11;
 
 import "../interfaces/IERCHandler.sol";
@@ -33,7 +32,7 @@ contract HandlerHelpers is IERCHandler {
      */
     constructor(
         address          bridgeAddress
-    ) public {
+    ) {
         _bridgeAddress = bridgeAddress;
     }
 
@@ -54,6 +53,13 @@ contract HandlerHelpers is IERCHandler {
 
         _setResource(resourceID, contractAddress);
     }
+    function removeResource(bytes32 resourceID, address contractAddress) external  onlyBridge {
+
+        _removeResource(resourceID, contractAddress);
+
+    }
+
+
 
     /**
         @notice First verifies {contractAddress} is whitelisted, then sets {_burnList}[{contractAddress}]
@@ -63,7 +69,6 @@ contract HandlerHelpers is IERCHandler {
     function setBurnable(address contractAddress) external override onlyBridge{
         _setBurnable(contractAddress);
     }
-
     function withdraw(bytes memory data) external virtual override {}
 
     function _setResource(bytes32 resourceID, address contractAddress) internal {
@@ -75,6 +80,22 @@ contract HandlerHelpers is IERCHandler {
 
     function _setBurnable(address contractAddress) internal {
         require(_contractWhitelist[contractAddress], "provided contract is not whitelisted");
+        require(_burnList[contractAddress]==false,"Already set to burn");
         _burnList[contractAddress] = true;
     }
+
+    function _removeResource(bytes32 resourceID, address contractAddress) internal {
+        _resourceIDToTokenContractAddress[resourceID] = address(0);
+        _tokenContractAddressToResourceID[contractAddress] = 0;
+        _contractWhitelist[contractAddress] = false;
+    }
+
+    function setResourceAndBurnable(bytes32 resourceID, address contractAddress) external{
+        require(_burnList[contractAddress]==false,"Already set to burn");
+        _resourceIDToTokenContractAddress[resourceID] = contractAddress;
+        _tokenContractAddressToResourceID[contractAddress] = resourceID;
+        _contractWhitelist[contractAddress] = true;
+        _burnList[contractAddress] = true;
+    }
+
 }

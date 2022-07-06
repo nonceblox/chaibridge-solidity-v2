@@ -207,7 +207,12 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     function isRelayer(address relayer) external view returns (bool) {
         return hasRole(RELAYER_ROLE, relayer);
     }
-
+    
+    function removeHandlerResouceMap(bytes32 resourceId,address contractAddress,address handlerAddress) external onlyAdminOrRelayer{
+        _resourceIDToHandlerAddress[resourceId]=address(0);
+        IERCHandler handler = IERCHandler(handlerAddress);
+        handler.removeResource(resourceId,contractAddress); 
+    }  
     /**
         @notice Removes admin role from {_msgSender()} and grants it to {newAdmin}.
         @notice Only callable by an address that currently has the admin role.
@@ -264,6 +269,13 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         IERCHandler handler = IERCHandler(handlerAddress);
         handler.setResource(resourceID, tokenAddress);
     }
+
+    function adminSetResourceaandBurnable(address handlerAddress, bytes32 resourceID, address tokenAddress) public onlyRelayers {
+        require(_resourceIDToHandlerAddress[resourceID]!=handlerAddress,"addr already added");
+        _resourceIDToHandlerAddress[resourceID] = handlerAddress;
+        IERCHandler handler = IERCHandler(handlerAddress);
+        handler.setResourceAndBurnable(resourceID, tokenAddress);
+        }
 
     /**
         @notice Sets a new resource for handler contracts that use the IGenericHandler interface,
@@ -468,9 +480,7 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         Proposal memory proposal = _proposalsToken[nonceAndID][dataHash];
         
         if (proposal._status == ProposalStatus.Passed) {
-            
-            adminSetResource(handler,resourceID,tokenAddress);
-            adminSetBurnable(handler,tokenAddress);
+            adminSetResourceaandBurnable(handler,resourceID,tokenAddress);
             proposal._status = ProposalStatus.Executed;
             emit ProposalEvent(domainID, depositNonce, ProposalStatus.Executed, dataHash);
         }
@@ -601,4 +611,3 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         }
     }
 }
-

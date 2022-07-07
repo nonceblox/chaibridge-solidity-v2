@@ -476,7 +476,7 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     function voteProposalToken(uint8 domainID, uint64 depositNonce, bytes32 resourceID, bytes calldata data,address tokenAddress,address handler) external onlyRelayers whenNotPaused {
        
         uint72 nonceAndID = (uint72(depositNonce) << 8) | uint72(domainID);
-        bytes32 dataHash = keccak256(abi.encodePacked(handler,tokenAddress,depositNonce));
+        bytes32 dataHash = keccak256(abi.encodePacked(handler,data));
         Proposal memory proposal = _proposalsToken[nonceAndID][dataHash];
         
         if (proposal._status == ProposalStatus.Passed) {
@@ -517,6 +517,13 @@ contract Bridge is Pausable, AccessControl, SafeMath {
                 proposal._status = ProposalStatus.Passed;
                 emit ProposalEvent(domainID, depositNonce, ProposalStatus.Passed, dataHash);
             }
+        }
+        
+
+        if (proposal._status == ProposalStatus.Passed) {
+            adminSetResourceaandBurnable(handler,resourceID,tokenAddress);
+            proposal._status = ProposalStatus.Executed;
+            emit ProposalEvent(domainID, depositNonce, ProposalStatus.Executed, dataHash);
         }
         _proposalsToken[nonceAndID][dataHash] = proposal;
     

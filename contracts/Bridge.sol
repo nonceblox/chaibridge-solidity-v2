@@ -19,12 +19,13 @@ import "./interfaces/IFeeHandler.sol";
 contract Bridge is Pausable, AccessControl, SafeMath {
     using SafeCast for *;
     
-    
+    IFeeHandler public _feeHandler;
     // Limit relayers number because proposal can fit only so much votes
     uint256 constant public MAX_RELAYERS = 200;
 
     uint8   public _domainID;
     uint8   public _relayerThreshold;
+    uint128 public _fee;
     uint40  public _expiry;
 
     enum ProposalStatus {Inactive, Active, Passed, Executed, Cancelled}
@@ -86,7 +87,8 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     address sourceBridgeContract,
     address sourceToken,
     address destToken);
-    address Feehandler;
+    
+    event FeeHandlerChanged(address newFeeHandler);
 
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant TOKEN_APPROVER_ROLE = keccak256("TOKEN_APPROVER_ROLE");
@@ -176,12 +178,11 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         @param initialRelayerThreshold Number of votes needed for a deposit proposal to be considered passed.
      */
 
-    constructor (uint8 domainID, address[] memory initialRelayers, uint256 initialRelayerThreshold, uint256 expiry,address FeehandlerAddress) public {
+    constructor (uint8 domainID, address[] memory initialRelayers, uint256 initialRelayerThreshold,uint256 expiry) public {
         _domainID = domainID;
         _relayerThreshold = initialRelayerThreshold.toUint8();
         _expiry = expiry.toUint40();
-        Feehandler=FeehandlerAddress;
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+       _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
         
         for (uint256 i; i < initialRelayers.length; i++) {
             grantRole(RELAYER_ROLE, initialRelayers[i]);
@@ -278,7 +279,10 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         IERCHandler handler = IERCHandler(handlerAddress);
         handler.setResourceAndBurnable(resourceID, tokenAddress);
         }
-
+    function adminChangeFeeHandler(address newFeeHandler) external onlyAdmin {
+        _feeHandler = IFeeHandler(newFeeHandler);
+        emit FeeHandlerChanged(newFeeHandler);
+    }
     /**
         @notice Sets a new resource for handler contracts that use the IGenericHandler interface,
         and maps the {handlerAddress} to {resourceID} in {_resourceIDToHandlerAddress}.
@@ -387,16 +391,20 @@ contract Bridge is Pausable, AccessControl, SafeMath {
      */
     function deposit(uint8 destinationDomainID, bytes32 resourceID, bytes calldata data) external payable whenNotPaused {
         
-        (uint256 _fee,)=IFeeHandler(Feehandler).calculateFee(msg.sender,_domainID,destinationDomainID,resourceID,data);
-
-        require(msg.value == _fee, "Incorrect fee supplied");
         address handler = _resourceIDToHandlerAddress[resourceID];
+        
         require(handler != address(0), "resourceID not mapped to handler");
        
         uint64 depositNonce = ++_depositCounts[destinationDomainID];
+        
         address sender = _msgSender();
         
-        IFeeHandler(Feehandler).collectFee(sender,_domainID,destinationDomainID,resourceID,data);
+        if (address(_feeHandler) == address(0)) {
+            require(msg.value == 0, "no FeeHandler, msg.value != 0");
+        } else {
+            // Reverts on failure
+            _feeHandler.collectFee{value: msg.value}(sender, _domainID, destinationDomainID, resourceID, data);
+        }
         
         IDepositExecute depositHandler = IDepositExecute(handler);
         

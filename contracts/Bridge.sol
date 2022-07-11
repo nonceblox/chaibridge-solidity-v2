@@ -25,7 +25,6 @@ contract Bridge is Pausable, AccessControl, SafeMath {
 
     uint8   public _domainID;
     uint8   public _relayerThreshold;
-    uint128 public _fee;
     uint40  public _expiry;
 
     enum ProposalStatus {Inactive, Active, Passed, Executed, Cancelled}
@@ -177,10 +176,9 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         @param initialRelayerThreshold Number of votes needed for a deposit proposal to be considered passed.
      */
 
-    constructor (uint8 domainID, address[] memory initialRelayers, uint256 initialRelayerThreshold, uint256 fee, uint256 expiry,address FeehandlerAddress) public {
+    constructor (uint8 domainID, address[] memory initialRelayers, uint256 initialRelayerThreshold, uint256 expiry,address FeehandlerAddress) public {
         _domainID = domainID;
         _relayerThreshold = initialRelayerThreshold.toUint8();
-        _fee = fee.toUint128();
         _expiry = expiry.toUint40();
         Feehandler=FeehandlerAddress;
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
@@ -361,16 +359,6 @@ contract Bridge is Pausable, AccessControl, SafeMath {
      */
     function _totalRelayers() public view returns (uint) {
         return AccessControl.getRoleMemberCount(RELAYER_ROLE);
-    }
-
-    /**
-        @notice Changes deposit fee.
-        @notice Only callable by admin.
-        @param newFee Value {_fee} will be updated to.
-     */
-    function adminChangeFee(uint256 newFee) external onlyAdmin {
-        require(_fee != newFee, "Current fee is equal to new fee");
-        _fee = newFee.toUint128();
     }
 
     /**

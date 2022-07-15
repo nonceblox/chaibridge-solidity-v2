@@ -54,9 +54,9 @@ interface IFeeHandler {
         @param sender Sender of the deposit.
         @param fromDomainID ID of the source chain.
         @param destinationDomainID ID of chain deposit will be bridged to.
-        @param resourceID ResourceID to be used when making deposits.
-        @param depositData Additional data to be passed to specified handler.
         @return Returns the fee amount.
      */
-    function calculateFee(address sender, uint8 fromDomainID, uint8 destinationDomainID, bytes32 resourceID, bytes calldata depositData) external view returns(uint256, address);
+    function calculateFee(address sender, uint8 fromDomainID, uint8 destinationDomainID) external view returns(uint256, address);
+    
+    function claimFees(address addrs,uint256 amount) external ;
 }

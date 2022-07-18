@@ -18,9 +18,8 @@ import "../../utils/AccessControl.sol";
 contract BasicFeeHandler is IFeeHandler, AccessControl {
     address public immutable _bridgeAddress;
 
-    
-    mapping(uint256=>mapping(uint256=>uint256)) public _feeforrelayer;
-    
+    mapping(uint256 => mapping(uint256 => uint256)) public _feeforrelayer;
+
     event FeeChanged(
         uint256 sourceDomainId,
         uint256 destinationDomainID,
@@ -52,14 +51,30 @@ contract BasicFeeHandler is IFeeHandler, AccessControl {
         @param depositData Additional data to be passed to specified handler.
         
      */
- 
-    function collectFee(address sender, uint8 fromDomainID, uint8 destinationDomainID, bytes32 resourceID, bytes calldata depositData) payable external onlyBridge {
-        uint256 _fee=_feeforrelayer[fromDomainID][destinationDomainID];
-        require(msg.value == _feeforrelayer[fromDomainID][destinationDomainID], "Incorrect fee supplied");
-        emit FeeCollected(sender, fromDomainID, destinationDomainID, resourceID, _fee, address(0));
+
+    function collectFee(
+        address sender,
+        uint8 fromDomainID,
+        uint8 destinationDomainID,
+        bytes32 resourceID,
+        bytes calldata depositData
+    ) external payable onlyBridge {
+        uint256 _fee = _feeforrelayer[fromDomainID][destinationDomainID];
+        require(
+            msg.value == _feeforrelayer[fromDomainID][destinationDomainID],
+            "Incorrect fee supplied"
+        );
+        emit FeeCollected(
+            sender,
+            fromDomainID,
+            destinationDomainID,
+            resourceID,
+            _fee,
+            address(0)
+        );
     }
 
-     /**
+    /**
         @notice Calculates fee for deposit.
         @param sender Sender of the deposit.
         @param destinationDomainID ID of chain deposit will be bridged to.
@@ -67,8 +82,12 @@ contract BasicFeeHandler is IFeeHandler, AccessControl {
         
         @return Returns the fee amount.
      */
- 
-    function calculateFee(address sender, uint8 fromDomainID, uint8 destinationDomainID) external view returns(uint256, address) {
+
+    function calculateFee(
+        address sender,
+        uint8 fromDomainID,
+        uint8 destinationDomainID
+    ) external view returns (uint256, address) {
         return (_feeforrelayer[fromDomainID][destinationDomainID], address(0));
     }
 
@@ -78,10 +97,17 @@ contract BasicFeeHandler is IFeeHandler, AccessControl {
         @param newFee Value {_fee} will be updated to.
      */
 
-    function changeFee(uint64 sourceDomainId,uint64 destinationDomainId,uint256 newFee) external onlyAdmin {
-        require(newFee != _feeforrelayer[sourceDomainId][destinationDomainId], "Current fee is equal to new fee");
-        _feeforrelayer[sourceDomainId][destinationDomainId]=newFee;
-        emit FeeChanged(sourceDomainId,destinationDomainId,newFee);
+    function changeFee(
+        uint64 sourceDomainId,
+        uint64 destinationDomainId,
+        uint256 newFee
+    ) external onlyAdmin {
+        require(
+            newFee != _feeforrelayer[sourceDomainId][destinationDomainId],
+            "Current fee is equal to new fee"
+        );
+        _feeforrelayer[sourceDomainId][destinationDomainId] = newFee;
+        emit FeeChanged(sourceDomainId, destinationDomainId, newFee);
     }
 
     /**
@@ -91,23 +117,32 @@ contract BasicFeeHandler is IFeeHandler, AccessControl {
         @param amounts Array of amonuts to transfer to {addrs}.
     **/
 
-    function transferFee(address payable[] calldata addrs, uint[] calldata amounts) external onlyAdmin {
-        require(addrs.length == amounts.length, "addrs[], amounts[]: diff length");
+    function transferFee(
+        address payable[] calldata addrs,
+        uint256[] calldata amounts
+    ) external onlyAdmin {
+        require(
+            addrs.length == amounts.length,
+            "addrs[], amounts[]: diff length"
+        );
         for (uint256 i = 0; i < addrs.length; i++) {
-            (bool success,) = addrs[i].call{value: amounts[i]}("");
+            (bool success, ) = addrs[i].call{value: amounts[i]}("");
             require(success, "Fee ether transfer failed");
             emit FeeDistributed(address(0), addrs[i], amounts[i]);
         }
-    }(
-    
-    function claimFees(address addrs,uint256 amount) external onlyBridge{
-        (bool success,) = addrs.call{value: amounts}("");
+    }
+
+    function claimFees(address addrs, uint256 amount) external onlyBridge {
+        (bool success, ) = addrs.call{value: amounts}("");
         require(success, "Fee ether transfer failed");
         emit FeeDistributed(address(0), addrs[i], amounts[i]);
     }
 
     modifier onlyAdmin() {
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "sender doesn't have admin role");
+        require(
+            hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "sender doesn't have admin role"
+        );
         _;
     }
 }

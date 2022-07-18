@@ -2,8 +2,8 @@
 pragma solidity 0.8.11;
 pragma experimental ABIEncoderV2;
 
-import "../../interfaces/IFeeHandler.sol";
-import "../../utils/AccessControl.sol";
+import "../interfaces/IFeeHandler.sol";
+import "../utils/AccessControl.sol";
 
 /**
     
@@ -18,7 +18,7 @@ import "../../utils/AccessControl.sol";
 contract BasicFeeHandler is IFeeHandler, AccessControl {
     address public immutable _bridgeAddress;
 
-    mapping(uint256 => mapping(uint256 => uint256)) public _feeforrelayer;
+    mapping(uint256 => mapping(uint256 => uint256)) public _fee;
 
     event FeeChanged(
         uint256 sourceDomainId,
@@ -59,9 +59,8 @@ contract BasicFeeHandler is IFeeHandler, AccessControl {
         bytes32 resourceID,
         bytes calldata depositData
     ) external payable onlyBridge {
-        uint256 _fee = _feeforrelayer[fromDomainID][destinationDomainID];
         require(
-            msg.value == _feeforrelayer[fromDomainID][destinationDomainID],
+            msg.value == _fee[fromDomainID][destinationDomainID],
             "Incorrect fee supplied"
         );
         emit FeeCollected(
@@ -69,7 +68,7 @@ contract BasicFeeHandler is IFeeHandler, AccessControl {
             fromDomainID,
             destinationDomainID,
             resourceID,
-            _fee,
+            _fee[fromDomainID][destinationDomainID],
             address(0)
         );
     }
@@ -88,7 +87,7 @@ contract BasicFeeHandler is IFeeHandler, AccessControl {
         uint8 fromDomainID,
         uint8 destinationDomainID
     ) external view returns (uint256, address) {
-        return (_feeforrelayer[fromDomainID][destinationDomainID], address(0));
+        return (_fee[fromDomainID][destinationDomainID], address(0));
     }
 
     /**
@@ -103,10 +102,10 @@ contract BasicFeeHandler is IFeeHandler, AccessControl {
         uint256 newFee
     ) external onlyAdmin {
         require(
-            newFee != _feeforrelayer[sourceDomainId][destinationDomainId],
+            newFee != _fee[sourceDomainId][destinationDomainId],
             "Current fee is equal to new fee"
         );
-        _feeforrelayer[sourceDomainId][destinationDomainId] = newFee;
+        _fee[sourceDomainId][destinationDomainId] = newFee;
         emit FeeChanged(sourceDomainId, destinationDomainId, newFee);
     }
 
@@ -133,9 +132,9 @@ contract BasicFeeHandler is IFeeHandler, AccessControl {
     }
 
     function claimFees(address addrs, uint256 amount) external onlyBridge {
-        (bool success, ) = addrs.call{value: amounts}("");
+        (bool success, ) = addrs.call{value: amount}("");
         require(success, "Fee ether transfer failed");
-        emit FeeDistributed(address(0), addrs[i], amounts[i]);
+        emit FeeDistributed(address(0), addrs, amount);
     }
 
     modifier onlyAdmin() {

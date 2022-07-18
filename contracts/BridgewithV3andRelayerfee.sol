@@ -30,7 +30,6 @@ contract Bridge is Pausable, AccessControl, SafeMath {
 
     uint8 public _domainID;
     uint8 public _relayerThreshold;
-    uint128 public _fee;
     uint40 public _expiry;
     uint256 public _relayerFeeClaimThreshold = 1;
 

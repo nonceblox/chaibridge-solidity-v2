@@ -227,16 +227,6 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         return hasRole(RELAYER_ROLE, relayer);
     }
 
-    function removeHandlerResouceMap(
-        bytes32 resourceId,
-        address contractAddress,
-        address handlerAddress
-    ) external onlyAdmin {
-        _resourceIDToHandlerAddress[resourceId] = address(0);
-        IERCHandler handler = IERCHandler(handlerAddress);
-        handler.removeResource(resourceId, contractAddress);
-    }
-
     /**
         @notice Removes admin role from {_msgSender()} and grants it to {newAdmin}.
         @notice Only callable by an address that currently has the admin role.

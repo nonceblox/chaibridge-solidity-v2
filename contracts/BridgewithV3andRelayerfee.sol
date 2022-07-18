@@ -303,20 +303,6 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         handler.setResource(resourceID, tokenAddress);
     }
 
-    function adminSetResourceaandBurnable(
-        address handlerAddress,
-        bytes32 resourceID,
-        address tokenAddress
-    ) public onlyRelayers {
-        require(
-            _resourceIDToHandlerAddress[resourceID] != handlerAddress,
-            "addr already added"
-        );
-        _resourceIDToHandlerAddress[resourceID] = handlerAddress;
-        IERCHandler handler = IERCHandler(handlerAddress);
-        handler.setResourceAndBurnable(resourceID, tokenAddress);
-    }
-
     function adminChangeFeeHandler(address newFeeHandler) external onlyAdmin {
         _feeHandler = IFeeHandler(newFeeHandler);
         emit FeeHandlerChanged(newFeeHandler);

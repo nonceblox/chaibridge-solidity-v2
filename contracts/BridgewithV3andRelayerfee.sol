@@ -294,10 +294,6 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         bytes32 resourceID,
         address tokenAddress
     ) public onlyResourceSetter {
-        require(
-            _resourceIDToHandlerAddress[resourceID] != handlerAddress,
-            "addr already added"
-        );
         _resourceIDToHandlerAddress[resourceID] = handlerAddress;
         IERCHandler handler = IERCHandler(handlerAddress);
         handler.setResource(resourceID, tokenAddress);

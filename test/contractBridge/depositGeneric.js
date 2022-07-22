@@ -11,11 +11,11 @@ const BridgeContract = artifacts.require("Bridge");
 const CentrifugeAssetContract = artifacts.require("CentrifugeAsset");
 const GenericHandlerContract = artifacts.require("GenericHandler");
 
-contract('Bridge - [deposit - Generic]', async () => {
+contract('Bridge - [deposit - Generic]', async() => {
     const originDomainID = 1;
     const destinationDomainID = 2;
     const expectedDepositNonce = 1;
-    
+
     let BridgeInstance;
     let GenericHandlerInstance;
     let depositData;
@@ -25,12 +25,12 @@ contract('Bridge - [deposit - Generic]', async () => {
     let initialDepositFunctionDepositerOffsets;
     let initialExecuteFunctionSignatures;
 
-    beforeEach(async () => {
+    beforeEach(async() => {
         await Promise.all([
             CentrifugeAssetContract.new().then(instance => CentrifugeAssetInstance = instance),
-            BridgeInstance = BridgeContract.new(originDomainID, [], 0, 0, 100).then(instance => BridgeInstance = instance)
+            BridgeInstance = BridgeContract.new(originDomainID, [], 100).then(instance => BridgeInstance = instance)
         ]);
-        
+
         resourceID = Helpers.createResourceID(CentrifugeAssetInstance.address, originDomainID)
         initialResourceIDs = [resourceID];
         initialContractAddresses = [CentrifugeAssetInstance.address];
@@ -40,13 +40,13 @@ contract('Bridge - [deposit - Generic]', async () => {
 
         GenericHandlerInstance = await GenericHandlerContract.new(
             BridgeInstance.address);
-            
-        await BridgeInstance.adminSetGenericResource(GenericHandlerInstance.address, resourceID,  initialContractAddresses[0], initialDepositFunctionSignatures[0], initialDepositFunctionDepositerOffsets[0], initialExecuteFunctionSignatures[0]);
+        await BridgeInstance.grantRole("0x462c68c1ae0c4fca4fdc11dd843c86b7aec691fa624c1118775ca3028e1dad71", accounts[0]);
+        await BridgeInstance.adminSetGenericResource(GenericHandlerInstance.address, resourceID, initialContractAddresses[0], initialDepositFunctionSignatures[0], initialDepositFunctionDepositerOffsets[0], initialExecuteFunctionSignatures[0]);
 
         depositData = Helpers.createGenericDepositData('0xdeadbeef');
     });
 
-    it('Generic deposit can be made', async () => {
+    it('Generic deposit can be made', async() => {
         await TruffleAssert.passes(BridgeInstance.deposit(
             destinationDomainID,
             resourceID,
@@ -54,7 +54,7 @@ contract('Bridge - [deposit - Generic]', async () => {
         ));
     });
 
-    it('_depositCounts is incremented correctly after deposit', async () => {
+    it('_depositCounts is incremented correctly after deposit', async() => {
         await BridgeInstance.deposit(
             destinationDomainID,
             resourceID,
@@ -65,7 +65,7 @@ contract('Bridge - [deposit - Generic]', async () => {
         assert.strictEqual(depositCount.toNumber(), expectedDepositNonce);
     });
 
-    it('Deposit event is fired with expected value after Generic deposit', async () => {
+    it('Deposit event is fired with expected value after Generic deposit', async() => {
         const depositTx = await BridgeInstance.deposit(
             destinationDomainID,
             resourceID,

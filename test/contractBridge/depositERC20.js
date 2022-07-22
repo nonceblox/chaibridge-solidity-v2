@@ -11,7 +11,7 @@ const BridgeContract = artifacts.require("Bridge");
 const ERC20MintableContract = artifacts.require("ERC20PresetMinterPauser");
 const ERC20HandlerContract = artifacts.require("ERC20Handler");
 
-contract('Bridge - [deposit - ERC20]', async (accounts) => {
+contract('Bridge - [deposit - ERC20]', async(accounts) => {
     const originDomainID = 1;
     const destinationDomainID = 2;
     const relayerThreshold = 0;
@@ -20,21 +20,21 @@ contract('Bridge - [deposit - ERC20]', async (accounts) => {
     const originChainInitialTokenAmount = 100;
     const depositAmount = 10;
     const expectedDepositNonce = 1;
-    
+
     let BridgeInstance;
     let OriginERC20MintableInstance;
     let OriginERC20HandlerInstance;
     let depositData;
 
-    beforeEach(async () => {
+    beforeEach(async() => {
         await Promise.all([
             ERC20MintableContract.new("token", "TOK").then(instance => OriginERC20MintableInstance = instance),
-            BridgeInstance = await BridgeContract.new(originDomainID, [], relayerThreshold, 0, 100)
+            BridgeInstance = await BridgeContract.new(originDomainID, [], relayerThreshold, 100)
         ]);
-        
-        
-        resourceID = Helpers.createResourceID(OriginERC20MintableInstance.address, originDomainID);
 
+
+        resourceID = Helpers.createResourceID(OriginERC20MintableInstance.address, originDomainID);
+        await BridgeInstance.grantRole("0x462c68c1ae0c4fca4fdc11dd843c86b7aec691fa624c1118775ca3028e1dad71", accounts[0]);
         OriginERC20HandlerInstance = await ERC20HandlerContract.new(BridgeInstance.address);
 
         await Promise.all([
@@ -49,43 +49,40 @@ contract('Bridge - [deposit - ERC20]', async (accounts) => {
             recipientAddress);
     });
 
-    it("[sanity] test depositerAddress' balance", async () => {
+    it("[sanity] test depositerAddress' balance", async() => {
         const originChainDepositerBalance = await OriginERC20MintableInstance.balanceOf(depositerAddress);
         assert.strictEqual(originChainDepositerBalance.toNumber(), originChainInitialTokenAmount);
     });
 
-    it("[sanity] test OriginERC20HandlerInstance.address' allowance", async () => {
+    it("[sanity] test OriginERC20HandlerInstance.address' allowance", async() => {
         const originChainHandlerAllowance = await OriginERC20MintableInstance.allowance(depositerAddress, OriginERC20HandlerInstance.address);
         assert.strictEqual(originChainHandlerAllowance.toNumber(), depositAmount * 2);
     });
 
-    it('ERC20 deposit can be made', async () => {
+    it('ERC20 deposit can be made', async() => {
         await TruffleAssert.passes(BridgeInstance.deposit(
             destinationDomainID,
             resourceID,
-            depositData,
-            { from: depositerAddress }
+            depositData, { from: depositerAddress }
         ));
     });
 
-    it('_depositCounts should be increments from 0 to 1', async () => {
+    it('_depositCounts should be increments from 0 to 1', async() => {
         await BridgeInstance.deposit(
             destinationDomainID,
             resourceID,
-            depositData,
-            { from: depositerAddress }
+            depositData, { from: depositerAddress }
         );
 
         const depositCount = await BridgeInstance._depositCounts.call(destinationDomainID);
         assert.strictEqual(depositCount.toNumber(), expectedDepositNonce);
     });
 
-    it('ERC20 can be deposited with correct balances', async () => {
+    it('ERC20 can be deposited with correct balances', async() => {
         await BridgeInstance.deposit(
             destinationDomainID,
             resourceID,
-            depositData,
-            { from: depositerAddress }
+            depositData, { from: depositerAddress }
         );
 
         const originChainDepositerBalance = await OriginERC20MintableInstance.balanceOf(depositerAddress);
@@ -95,12 +92,11 @@ contract('Bridge - [deposit - ERC20]', async (accounts) => {
         assert.strictEqual(originChainHandlerBalance.toNumber(), depositAmount);
     });
 
-    it('Deposit event is fired with expected value', async () => {
+    it('Deposit event is fired with expected value', async() => {
         let depositTx = await BridgeInstance.deposit(
             destinationDomainID,
             resourceID,
-            depositData,
-            { from: depositerAddress }
+            depositData, { from: depositerAddress }
         );
 
         TruffleAssert.eventEmitted(depositTx, 'Deposit', (event) => {
@@ -112,8 +108,7 @@ contract('Bridge - [deposit - ERC20]', async (accounts) => {
         depositTx = await BridgeInstance.deposit(
             destinationDomainID,
             resourceID,
-            depositData,
-            { from: depositerAddress }
+            depositData, { from: depositerAddress }
         );
 
         TruffleAssert.eventEmitted(depositTx, 'Deposit', (event) => {
@@ -123,7 +118,7 @@ contract('Bridge - [deposit - ERC20]', async (accounts) => {
         });
     });
 
-    it('deposit requires resourceID that is mapped to a handler', async () => {
+    it('deposit requires resourceID that is mapped to a handler', async() => {
         await TruffleAssert.reverts(BridgeInstance.deposit(destinationDomainID, '0x0', depositData, { from: depositerAddress }), "resourceID not mapped to handler");
     });
 });

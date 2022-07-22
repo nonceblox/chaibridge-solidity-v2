@@ -32,25 +32,25 @@ contract('E2E ERC20 - Same Chain', async accounts => {
     let initialContractAddresses;
     let burnableContractAddresses;
 
-    beforeEach(async () => {
+    beforeEach(async() => {
         await Promise.all([
-            BridgeContract.new(domainID, [relayer1Address, relayer2Address], relayerThreshold, 0, 100).then(instance => BridgeInstance = instance),
+            BridgeContract.new(domainID, [relayer1Address, relayer2Address], relayerThreshold, 100).then(instance => BridgeInstance = instance),
             ERC20MintableContract.new("token", "TOK").then(instance => ERC20MintableInstance = instance)
         ]);
-        
+
         resourceID = Helpers.createResourceID(ERC20MintableInstance.address, domainID);
-    
+
         initialResourceIDs = [resourceID];
         initialContractAddresses = [ERC20MintableInstance.address];
         burnableContractAddresses = [];
 
         ERC20HandlerInstance = await ERC20HandlerContract.new(BridgeInstance.address);
-
+        await BridgeInstance.grantRole("0x462c68c1ae0c4fca4fdc11dd843c86b7aec691fa624c1118775ca3028e1dad71", accounts[0]);
         await Promise.all([
             ERC20MintableInstance.mint(depositerAddress, initialTokenAmount),
             BridgeInstance.adminSetResource(ERC20HandlerInstance.address, resourceID, ERC20MintableInstance.address)
         ]);
-        
+
         await ERC20MintableInstance.approve(ERC20HandlerInstance.address, depositAmount, { from: depositerAddress });
 
         depositData = Helpers.createERCDepositData(depositAmount, 20, recipientAddress)
@@ -58,23 +58,22 @@ contract('E2E ERC20 - Same Chain', async accounts => {
         depositProposalDataHash = Ethers.utils.keccak256(ERC20HandlerInstance.address + depositProposalData.substr(2));
     });
 
-    it("[sanity] depositerAddress' balance should be equal to initialTokenAmount", async () => {
+    it("[sanity] depositerAddress' balance should be equal to initialTokenAmount", async() => {
         const depositerBalance = await ERC20MintableInstance.balanceOf(depositerAddress);
         assert.strictEqual(depositerBalance.toNumber(), initialTokenAmount);
     });
 
-    it("[sanity] ERC20HandlerInstance.address should have an allowance of depositAmount from depositerAddress", async () => {
+    it("[sanity] ERC20HandlerInstance.address should have an allowance of depositAmount from depositerAddress", async() => {
         const handlerAllowance = await ERC20MintableInstance.allowance(depositerAddress, ERC20HandlerInstance.address);
         assert.strictEqual(handlerAllowance.toNumber(), depositAmount);
     });
 
-    it("depositAmount of Destination ERC20 should be transferred to recipientAddress", async () => {
+    it("depositAmount of Destination ERC20 should be transferred to recipientAddress", async() => {
         // depositerAddress makes initial deposit of depositAmount
         await TruffleAssert.passes(BridgeInstance.deposit(
             domainID,
             resourceID,
-            depositData,
-            { from: depositerAddress }
+            depositData, { from: depositerAddress }
         ));
 
         // Handler should have a balance of depositAmount
@@ -86,8 +85,7 @@ contract('E2E ERC20 - Same Chain', async accounts => {
             domainID,
             expectedDepositNonce,
             resourceID,
-            depositProposalData,
-            { from: relayer1Address }
+            depositProposalData, { from: relayer1Address }
         ));
 
         // relayer2 votes in favor of the deposit proposal
@@ -98,8 +96,7 @@ contract('E2E ERC20 - Same Chain', async accounts => {
             domainID,
             expectedDepositNonce,
             resourceID,
-            depositProposalData,
-            { from: relayer2Address }
+            depositProposalData, { from: relayer2Address }
         ));
 
         // Assert ERC20 balance was transferred from depositerAddress

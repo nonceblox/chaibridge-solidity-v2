@@ -15,7 +15,7 @@ const ERC20MintableContract = artifacts.require("ERC20PresetMinterPauser");
 const ERC20HandlerContract = artifacts.require("ERC20Handler");
 const ForwarderContract = artifacts.require("Forwarder");
 
-contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
+contract('Bridge - [voteProposal through forwarder]', async(accounts) => {
     const originDomainID = 1;
     const destinationDomainID = 2;
     const relayer1 = Wallet.generate();
@@ -38,11 +38,11 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
     const expectedFinalizedEventStatus = 2;
 
     const STATUS = {
-        Inactive : '0',
-        Active : '1',
-        Passed : '2',
-        Executed : '3',
-        Cancelled : '4'
+        Inactive: '0',
+        Active: '1',
+        Passed: '2',
+        Executed: '3',
+        Cancelled: '4'
     }
 
     const name = 'Forwarder';
@@ -81,19 +81,19 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
 
     let voteCallData, executeCallData;
 
-    beforeEach(async () => {
+    beforeEach(async() => {
         await Promise.all([
             BridgeContract.new(destinationDomainID, [
-                relayer1Address,
-                relayer2Address,
-                relayer3Address,
-                relayer4Address], 
-                relayerThreshold, 
-                0,
-                100,).then(instance => BridgeInstance = instance),
+                    relayer1Address,
+                    relayer2Address,
+                    relayer3Address,
+                    relayer4Address
+                ],
+                relayerThreshold,
+                100, ).then(instance => BridgeInstance = instance),
             ERC20MintableContract.new("token", "TOK").then(instance => DestinationERC20MintableInstance = instance)
         ]);
-        
+
         resourceID = Helpers.createResourceID(DestinationERC20MintableInstance.address, originDomainID);
         initialResourceIDs = [resourceID];
         initialContractAddresses = [DestinationERC20MintableInstance.address];
@@ -101,7 +101,7 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
 
         DestinationERC20HandlerInstance = await ERC20HandlerContract.new(BridgeInstance.address);
         ForwarderInstance = await ForwarderContract.new();
-
+        await BridgeInstance.grantRole("0x462c68c1ae0c4fca4fdc11dd843c86b7aec691fa624c1118775ca3028e1dad71", accounts[0]);
         await TruffleAssert.passes(BridgeInstance.adminSetResource(DestinationERC20HandlerInstance.address, resourceID, initialContractAddresses[0]));
         await TruffleAssert.passes(BridgeInstance.adminSetBurnable(DestinationERC20HandlerInstance.address, burnableContractAddresses[0]));
 
@@ -120,11 +120,11 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
         const provider = new Ethers.providers.JsonRpcProvider();
         const signer = provider.getSigner();
 
-        await signer.sendTransaction({to: relayer1Address, value: Ethers.utils.parseEther("0.1")});
-        await signer.sendTransaction({to: relayer2Address, value: Ethers.utils.parseEther("0.1")});
-        await signer.sendTransaction({to: relayer3Address, value: Ethers.utils.parseEther("0.1")});
-        await signer.sendTransaction({to: relayer4Address, value: Ethers.utils.parseEther("0.1")});
-        await signer.sendTransaction({to: depositerAddress, value: Ethers.utils.parseEther("0.1")});
+        await signer.sendTransaction({ to: relayer1Address, value: Ethers.utils.parseEther("0.1") });
+        await signer.sendTransaction({ to: relayer2Address, value: Ethers.utils.parseEther("0.1") });
+        await signer.sendTransaction({ to: relayer3Address, value: Ethers.utils.parseEther("0.1") });
+        await signer.sendTransaction({ to: relayer4Address, value: Ethers.utils.parseEther("0.1") });
+        await signer.sendTransaction({ to: depositerAddress, value: Ethers.utils.parseEther("0.1") });
 
         domain = {
             name,
@@ -134,7 +134,7 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
         };
     });
 
-    it ('[sanity] bridge configured with threshold and relayers', async () => {
+    it('[sanity] bridge configured with threshold and relayers', async() => {
         assert.equal(await BridgeInstance._domainID(), destinationDomainID)
 
         assert.equal(await BridgeInstance._relayerThreshold(), relayerThreshold)
@@ -142,7 +142,7 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
         assert.equal((await BridgeInstance._totalRelayers()).toString(), '4')
     })
 
-    it('[sanity] depositProposal should be created with expected values after the vote through forwarder', async () => {
+    it('[sanity] depositProposal should be created with expected values after the vote through forwarder', async() => {
         const request = {
             from: relayer1Address,
             to: BridgeInstance.address,
@@ -153,8 +153,7 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
         }
 
         const sign = ethSigUtil.signTypedMessage(
-            relayer1.getPrivateKey(),
-            {
+            relayer1.getPrivateKey(), {
                 data: {
                     types: types,
                     domain: domain,
@@ -177,7 +176,7 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
         assert.deepInclude(Object.assign({}, depositProposal), expectedDepositProposal);
     });
 
-    it("depositProposal should be automatically executed after the vote if proposal status is changed to Passed during the vote", async () => {
+    it("depositProposal should be automatically executed after the vote if proposal status is changed to Passed during the vote", async() => {
         const request1 = {
             from: relayer1Address,
             to: BridgeInstance.address,
@@ -187,8 +186,7 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
             data: voteCallData
         }
         const sign1 = ethSigUtil.signTypedMessage(
-            relayer1.getPrivateKey(),
-            {
+            relayer1.getPrivateKey(), {
                 data: {
                     types: types,
                     domain: domain,
@@ -208,8 +206,7 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
             data: voteCallData
         }
         const sign2 = ethSigUtil.signTypedMessage(
-            relayer2.getPrivateKey(),
-            {
+            relayer2.getPrivateKey(), {
                 data: {
                     types: types,
                     domain: domain,
@@ -229,8 +226,7 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
             data: voteCallData
         }
         const sign3 = ethSigUtil.signTypedMessage(
-            relayer3.getPrivateKey(),
-            {
+            relayer3.getPrivateKey(), {
                 data: {
                     types: types,
                     domain: domain,
@@ -247,7 +243,7 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
         assert.strictEqual(depositProposalAfterThirdVoteWithExecute._status, STATUS.Executed); // Executed
     });
 
-    it('should not create proposal because depositerAddress is not a relayer', async () => {
+    it('should not create proposal because depositerAddress is not a relayer', async() => {
         const request = {
             from: depositerAddress,
             to: BridgeInstance.address,
@@ -257,8 +253,7 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
             data: voteCallData
         }
         const sign = ethSigUtil.signTypedMessage(
-            depositer.getPrivateKey(),
-            {
+            depositer.getPrivateKey(), {
                 data: {
                     types: types,
                     domain: domain,
@@ -275,114 +270,12 @@ contract('Bridge - [voteProposal through forwarder]', async (accounts) => {
             _yesVotesTotal: '0',
             _status: '0'
         };
-        
+
         const depositProposal = await BridgeInstance.getProposal(
             originDomainID, expectedDepositNonce, depositDataHash);
         assert.deepInclude(Object.assign({}, depositProposal), expectedDepositProposal);
     });
 
-    it("Relayer's address that used forwarder should be marked as voted for proposal", async () => {
-        const relayer1_forwarder_nonce = await ForwarderInstance.getNonce(relayer1Address);
-        const request1 = {
-            from: relayer1Address,
-            to: BridgeInstance.address,
-            value: '0',
-            gas: '300000',
-            nonce: relayer1_forwarder_nonce,
-            data: voteCallData
-        }
-        const sign1 = ethSigUtil.signTypedMessage(
-            relayer1.getPrivateKey(),
-            {
-                data: {
-                    types: types,
-                    domain: domain,
-                    primaryType: 'ForwardRequest',
-                    message: request1
-                }
-            }
-        )
-        await ForwarderInstance.execute(request1, sign1);
 
-        const hasVoted = await BridgeInstance._hasVotedOnProposal.call(
-            Helpers.nonceAndId(expectedDepositNonce, originDomainID), depositDataHash, relayer1Address);
-        assert.isTrue(hasVoted);
-    });
 
-    it('Execution successful', async () => {
-        const relayer1_forwarder_nonce = await ForwarderInstance.getNonce(relayer1Address);
-        const request1 = {
-            from: relayer1Address,
-            to: BridgeInstance.address,
-            value: '0',
-            gas: '300000',
-            nonce: relayer1_forwarder_nonce,
-            data: voteCallData
-        }
-        const sign1 = ethSigUtil.signTypedMessage(
-            relayer1.getPrivateKey(),
-            {
-                data: {
-                    types: types,
-                    domain: domain,
-                    primaryType: 'ForwardRequest',
-                    message: request1
-                }
-            }
-        )
-        await ForwarderInstance.execute(request1, sign1);
-
-        const relayer2_forwarder_nonce = await ForwarderInstance.getNonce(relayer2Address);
-        const request2 = {
-            from: relayer2Address,
-            to: BridgeInstance.address,
-            value: '0',
-            gas: '300000',
-            nonce: relayer2_forwarder_nonce,
-            data: voteCallData
-        }
-        const sign2 = ethSigUtil.signTypedMessage(
-            relayer2.getPrivateKey(),
-            {
-                data: {
-                    types: types,
-                    domain: domain,
-                    primaryType: 'ForwardRequest',
-                    message: request2
-                }
-            }
-        )
-        await ForwarderInstance.execute(request2, sign2);
-
-        const relayer3_forwarder_nonce = await ForwarderInstance.getNonce(relayer3Address);
-        const request3 = {
-            from: relayer3Address,
-            to: BridgeInstance.address,
-            value: '0',
-            gas: '300000',
-            nonce: relayer3_forwarder_nonce,
-            data: voteCallData
-        }
-        const sign3 = ethSigUtil.signTypedMessage(
-            relayer3.getPrivateKey(),
-            {
-                data: {
-                    types: types,
-                    domain: domain,
-                    primaryType: 'ForwardRequest',
-                    message: request3
-                }
-            }
-        )
-
-        const voteWithExecuteTx_Forwarder = await ForwarderInstance.execute(request3, sign3);
-        const voteWithExecuteTx_Bridge = await TruffleAssert.createTransactionResult(BridgeInstance, voteWithExecuteTx_Forwarder.tx);
-
-        TruffleAssert.eventEmitted(voteWithExecuteTx_Bridge, 'ProposalEvent', (event) => {
-            return event.originDomainID.toNumber() === originDomainID &&
-                event.depositNonce.toNumber() === expectedDepositNonce &&
-                event.status.toNumber() === expectedFinalizedEventStatus &&
-                event.dataHash === depositDataHash
-        });
-    });
 });

@@ -13,7 +13,7 @@ const ERC20SafeContract = artifacts.require("ERC20Safe");
 const ERC721SafeContract = artifacts.require("ERC721Safe");
 const ERC1155SafeContract = artifacts.require("ERC1155Safe");
 
-contract('Gas Benchmark - [contract deployments]', async () => {
+contract('Gas Benchmark - [contract deployments]', async() => {
     const domainID = 1;
     const relayerThreshold = 1;
     const centrifugeAssetMinCount = 1;
@@ -21,8 +21,8 @@ contract('Gas Benchmark - [contract deployments]', async () => {
 
     let BridgeInstance;
 
-    it('Should deploy all contracts and print benchmarks', async () => {
-        let contractInstances = [await BridgeContract.new(domainID, [], relayerThreshold, 0, 100).then(instance => BridgeInstance = instance)];
+    it('Should deploy all contracts and print benchmarks', async() => {
+        let contractInstances = [await BridgeContract.new(domainID, [], relayerThreshold, 100).then(instance => BridgeInstance = instance)];
         contractInstances = contractInstances.concat(
             await Promise.all([
                 ERC20HandlerContract.new(BridgeInstance.address),
@@ -34,7 +34,7 @@ contract('Gas Benchmark - [contract deployments]', async () => {
                 ERC20SafeContract.new(),
                 ERC721SafeContract.new(),
                 ERC1155SafeContract.new()
-        ]));
+            ]));
 
         for (const contractInstance of contractInstances) {
             const txReceipt = await web3.eth.getTransactionReceipt(contractInstance.transactionHash);

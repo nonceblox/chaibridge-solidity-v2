@@ -12,7 +12,7 @@ const BridgeContract = artifacts.require("Bridge");
 const GenericHandlerContract = artifacts.require("GenericHandler");
 const CentrifugeAssetContract = artifacts.require("CentrifugeAsset");
 
-contract('GenericHandler - [constructor]', async () => {
+contract('GenericHandler - [constructor]', async(accounts) => {
     const relayerThreshold = 2;
     const domainID = 1;
     const centrifugeAssetMinCount = 1;
@@ -30,9 +30,9 @@ contract('GenericHandler - [constructor]', async () => {
     let initialDepositFunctionDepositerOffsets;
     let initialExecuteFunctionSignatures;
 
-    beforeEach(async () => {
+    beforeEach(async() => {
         await Promise.all([
-            BridgeContract.new(domainID, [], relayerThreshold, 0, 100).then(instance => BridgeInstance = instance),
+            BridgeContract.new(domainID, [], relayerThreshold, 100).then(instance => BridgeInstance = instance),
             CentrifugeAssetContract.new(centrifugeAssetMinCount).then(instance => CentrifugeAssetInstance1 = instance),
             CentrifugeAssetContract.new(centrifugeAssetMinCount).then(instance => CentrifugeAssetInstance2 = instance),
             CentrifugeAssetContract.new(centrifugeAssetMinCount).then(instance => CentrifugeAssetInstance3 = instance)
@@ -44,28 +44,28 @@ contract('GenericHandler - [constructor]', async () => {
             Helpers.createResourceID(CentrifugeAssetInstance3.address, domainID)
         ];
         initialContractAddresses = [CentrifugeAssetInstance1.address, CentrifugeAssetInstance2.address, CentrifugeAssetInstance3.address];
-        
-        const executeProposalFuncSig = Ethers.utils.keccak256(Ethers.utils.hexlify(Ethers.utils.toUtf8Bytes(centrifugeAssetStoreFuncSig))).substr(0, 10);
 
+        const executeProposalFuncSig = Ethers.utils.keccak256(Ethers.utils.hexlify(Ethers.utils.toUtf8Bytes(centrifugeAssetStoreFuncSig))).substr(0, 10);
+        await BridgeInstance.grantRole("0x462c68c1ae0c4fca4fdc11dd843c86b7aec691fa624c1118775ca3028e1dad71", accounts[0]);
         initialDepositFunctionSignatures = [blankFunctionSig, blankFunctionSig, blankFunctionSig];
         initialDepositFunctionDepositerOffsets = [blankFunctionDepositerOffset, blankFunctionDepositerOffset, blankFunctionDepositerOffset];
         initialExecuteFunctionSignatures = [executeProposalFuncSig, executeProposalFuncSig, executeProposalFuncSig];
     });
 
-    it('[sanity] contract should be deployed successfully', async () => {
+    it('[sanity] contract should be deployed successfully', async() => {
         TruffleAssert.passes(
             await GenericHandlerContract.new(
                 BridgeInstance.address));
     });
 
-    it('contract mappings were set with expected values', async () => {
+    it('contract mappings were set with expected values', async() => {
         const GenericHandlerInstance = await GenericHandlerContract.new(
             BridgeInstance.address);
 
         for (let i = 0; i < initialResourceIDs.length; i++) {
             await BridgeInstance.adminSetGenericResource(GenericHandlerInstance.address, initialResourceIDs[i], initialContractAddresses[i], initialDepositFunctionSignatures[i], initialDepositFunctionDepositerOffsets[i], initialExecuteFunctionSignatures[i]);
         }
-        
+
         for (let i = 0; i < initialResourceIDs.length; i++) {
             const retrievedTokenAddress = await GenericHandlerInstance._resourceIDToContractAddress.call(initialResourceIDs[i]);
             assert.strictEqual(initialContractAddresses[i].toLowerCase(), retrievedTokenAddress.toLowerCase());

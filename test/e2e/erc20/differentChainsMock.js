@@ -12,18 +12,18 @@ contract('E2E ERC20 - Two EVM Chains', async accounts => {
     const originDomainID = 1;
     const originRelayer1Address = accounts[3];
     const originRelayer2Address = accounts[4];
-    
+
     const destinationRelayerThreshold = 2;
     const destinationDomainID = 2;
     const destinationRelayer1Address = accounts[3];
     const destinationRelayer2Address = accounts[4];
-    
+
     const depositerAddress = accounts[1];
     const recipientAddress = accounts[2];
     const initialTokenAmount = 100;
     const depositAmount = 10;
     const expectedDepositNonce = 1;
-    
+
     let OriginBridgeInstance;
     let OriginERC20MintableInstance;
     let OriginERC20HandlerInstance;
@@ -34,7 +34,7 @@ contract('E2E ERC20 - Two EVM Chains', async accounts => {
     let originInitialResourceIDs;
     let originInitialContractAddresses;
     let originBurnableContractAddresses;
-    
+
     let DestinationBridgeInstance;
     let DestinationERC20MintableInstance;
     let DestinationERC20HandlerInstance;
@@ -46,10 +46,10 @@ contract('E2E ERC20 - Two EVM Chains', async accounts => {
     let destinationInitialContractAddresses;
     let destinationBurnableContractAddresses;
 
-    beforeEach(async () => {
+    beforeEach(async() => {
         await Promise.all([
-            BridgeContract.new(originDomainID, [originRelayer1Address, originRelayer2Address], originRelayerThreshold, 0, 100).then(instance => OriginBridgeInstance = instance),
-            BridgeContract.new(destinationDomainID, [destinationRelayer1Address, destinationRelayer2Address], destinationRelayerThreshold, 0, 100).then(instance => DestinationBridgeInstance = instance),
+            BridgeContract.new(originDomainID, [originRelayer1Address, originRelayer2Address], originRelayerThreshold, 100).then(instance => OriginBridgeInstance = instance),
+            BridgeContract.new(destinationDomainID, [destinationRelayer1Address, destinationRelayer2Address], destinationRelayerThreshold, 100).then(instance => DestinationBridgeInstance = instance),
             ERC20MintableContract.new("token", "TOK").then(instance => OriginERC20MintableInstance = instance),
             ERC20MintableContract.new("token", "TOK").then(instance => DestinationERC20MintableInstance = instance)
         ]);
@@ -66,46 +66,48 @@ contract('E2E ERC20 - Two EVM Chains', async accounts => {
 
         await Promise.all([
             ERC20HandlerContract.new(OriginBridgeInstance.address)
-                .then(instance => OriginERC20HandlerInstance = instance),
+            .then(instance => OriginERC20HandlerInstance = instance),
             ERC20HandlerContract.new(DestinationBridgeInstance.address)
-                .then(instance => DestinationERC20HandlerInstance = instance),
+            .then(instance => DestinationERC20HandlerInstance = instance),
         ]);
 
         await OriginERC20MintableInstance.mint(depositerAddress, initialTokenAmount);
 
         await OriginERC20MintableInstance.approve(OriginERC20HandlerInstance.address, depositAmount, { from: depositerAddress }),
-        await OriginERC20MintableInstance.grantRole(await OriginERC20MintableInstance.MINTER_ROLE(), OriginERC20HandlerInstance.address),
-        await DestinationERC20MintableInstance.grantRole(await DestinationERC20MintableInstance.MINTER_ROLE(), DestinationERC20HandlerInstance.address),
-        await OriginBridgeInstance.adminSetResource(OriginERC20HandlerInstance.address, originResourceID, OriginERC20MintableInstance.address),
-        await OriginBridgeInstance.adminSetBurnable(OriginERC20HandlerInstance.address, originBurnableContractAddresses[0]),
-        await DestinationBridgeInstance.adminSetResource(DestinationERC20HandlerInstance.address, destinationResourceID, DestinationERC20MintableInstance.address),
-        await DestinationBridgeInstance.adminSetBurnable(DestinationERC20HandlerInstance.address, destinationBurnableContractAddresses[0])
+            await OriginERC20MintableInstance.grantRole(await OriginERC20MintableInstance.MINTER_ROLE(), OriginERC20HandlerInstance.address),
+            await DestinationERC20MintableInstance.grantRole(await DestinationERC20MintableInstance.MINTER_ROLE(), DestinationERC20HandlerInstance.address),
+            await OriginBridgeInstance.grantRole("0x462c68c1ae0c4fca4fdc11dd843c86b7aec691fa624c1118775ca3028e1dad71", accounts[0]),
+            await OriginBridgeInstance.adminSetResource(OriginERC20HandlerInstance.address, originResourceID, OriginERC20MintableInstance.address),
+            await OriginBridgeInstance.adminSetBurnable(OriginERC20HandlerInstance.address, originBurnableContractAddresses[0]),
+            await DestinationBridgeInstance.grantRole("0x462c68c1ae0c4fca4fdc11dd843c86b7aec691fa624c1118775ca3028e1dad71", accounts[0]),
+            await DestinationBridgeInstance.adminSetResource(DestinationERC20HandlerInstance.address, destinationResourceID, DestinationERC20MintableInstance.address),
+            await DestinationBridgeInstance.adminSetBurnable(DestinationERC20HandlerInstance.address, destinationBurnableContractAddresses[0])
 
         originDepositData = Helpers.createERCDepositData(depositAmount, 20, recipientAddress);
         originDepositProposalData = Helpers.createERCDepositData(depositAmount, 20, recipientAddress);
         originDepositProposalDataHash = Ethers.utils.keccak256(DestinationERC20HandlerInstance.address + originDepositProposalData.substr(2));
-        
+
         destinationDepositData = Helpers.createERCDepositData(depositAmount, 20, depositerAddress);
         destinationDepositProposalData = Helpers.createERCDepositData(depositAmount, 20, depositerAddress);
         destinationDepositProposalDataHash = Ethers.utils.keccak256(OriginERC20HandlerInstance.address + destinationDepositProposalData.substr(2));
     });
-    
-    it("[sanity] depositerAddress' balance should be equal to initialTokenAmount", async () => {
+
+    it("[sanity] depositerAddress' balance should be equal to initialTokenAmount", async() => {
         const depositerBalance = await OriginERC20MintableInstance.balanceOf(depositerAddress);
         assert.strictEqual(depositerBalance.toNumber(), initialTokenAmount);
     });
 
-    it("[sanity] OriginERC20HandlerInstance.address should have an allowance of depositAmount from depositerAddress", async () => {
+    it("[sanity] OriginERC20HandlerInstance.address should have an allowance of depositAmount from depositerAddress", async() => {
         const handlerAllowance = await OriginERC20MintableInstance.allowance(depositerAddress, OriginERC20HandlerInstance.address);
         assert.strictEqual(handlerAllowance.toNumber(), depositAmount);
     });
 
-    it("[sanity] DestinationERC20HandlerInstance.address should have minterRole for DestinationERC20MintableInstance", async () => {
+    it("[sanity] DestinationERC20HandlerInstance.address should have minterRole for DestinationERC20MintableInstance", async() => {
         const isMinter = await DestinationERC20MintableInstance.hasRole(await DestinationERC20MintableInstance.MINTER_ROLE(), DestinationERC20HandlerInstance.address);
         assert.isTrue(isMinter);
     });
 
-    it("E2E: depositAmount of Origin ERC20 owned by depositAddress to Destination ERC20 owned by recipientAddress and back again", async () => {
+    it("E2E: depositAmount of Origin ERC20 owned by depositAddress to Destination ERC20 owned by recipientAddress and back again", async() => {
         let depositerBalance;
         let recipientBalance;
 
@@ -113,8 +115,7 @@ contract('E2E ERC20 - Two EVM Chains', async accounts => {
         await TruffleAssert.passes(OriginBridgeInstance.deposit(
             destinationDomainID,
             originResourceID,
-            originDepositData,
-            { from: depositerAddress }
+            originDepositData, { from: depositerAddress }
         ));
 
         // destinationRelayer1 creates the deposit proposal
@@ -122,8 +123,7 @@ contract('E2E ERC20 - Two EVM Chains', async accounts => {
             originDomainID,
             expectedDepositNonce,
             destinationResourceID,
-            originDepositProposalData,
-            { from: destinationRelayer1Address }
+            originDepositProposalData, { from: destinationRelayer1Address }
         ));
 
 
@@ -135,15 +135,14 @@ contract('E2E ERC20 - Two EVM Chains', async accounts => {
             originDomainID,
             expectedDepositNonce,
             destinationResourceID,
-            originDepositProposalData,
-            { from: destinationRelayer2Address }
+            originDepositProposalData, { from: destinationRelayer2Address }
         ));
 
         // Assert ERC20 balance was transferred from depositerAddress
         depositerBalance = await OriginERC20MintableInstance.balanceOf(depositerAddress);
         assert.strictEqual(depositerBalance.toNumber(), initialTokenAmount - depositAmount, "depositAmount wasn't transferred from depositerAddress");
 
-        
+
         // Assert ERC20 balance was transferred to recipientAddress
         recipientBalance = await DestinationERC20MintableInstance.balanceOf(recipientAddress);
         assert.strictEqual(recipientBalance.toNumber(), depositAmount, "depositAmount wasn't transferred to recipientAddress");
@@ -159,8 +158,7 @@ contract('E2E ERC20 - Two EVM Chains', async accounts => {
         await TruffleAssert.passes(DestinationBridgeInstance.deposit(
             originDomainID,
             destinationResourceID,
-            destinationDepositData,
-            { from: recipientAddress }
+            destinationDepositData, { from: recipientAddress }
         ));
 
         // Recipient should have a balance of 0 (deposit amount - deposit amount)
@@ -172,8 +170,7 @@ contract('E2E ERC20 - Two EVM Chains', async accounts => {
             destinationDomainID,
             expectedDepositNonce,
             originResourceID,
-            destinationDepositProposalData,
-            { from: originRelayer1Address }
+            destinationDepositProposalData, { from: originRelayer1Address }
         ));
 
         // destinationRelayer2 votes in favor of the deposit proposal
@@ -184,14 +181,13 @@ contract('E2E ERC20 - Two EVM Chains', async accounts => {
             destinationDomainID,
             expectedDepositNonce,
             originResourceID,
-            destinationDepositProposalData,
-            { from: originRelayer2Address }
+            destinationDepositProposalData, { from: originRelayer2Address }
         ));
 
         // Assert ERC20 balance was transferred from recipientAddress
         recipientBalance = await DestinationERC20MintableInstance.balanceOf(recipientAddress);
         assert.strictEqual(recipientBalance.toNumber(), 0);
-        
+
         // Assert ERC20 balance was transferred to recipientAddress
         depositerBalance = await OriginERC20MintableInstance.balanceOf(depositerAddress);
         assert.strictEqual(depositerBalance.toNumber(), initialTokenAmount);

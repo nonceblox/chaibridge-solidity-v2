@@ -10,7 +10,7 @@ const BridgeContract = artifacts.require("Bridge");
 const ERC20HandlerContract = artifacts.require("ERC20Handler");
 const ERC20MintableContract = artifacts.require("ERC20PresetMinterPauser");
 
-contract('Gas Benchmark - [Vote Proposal]', async (accounts) => {
+contract('Gas Benchmark - [Vote Proposal]', async(accounts) => {
     const domainID = 1;
     const relayerThreshold = 2;
     const relayer1Address = accounts[0];
@@ -20,7 +20,7 @@ contract('Gas Benchmark - [Vote Proposal]', async (accounts) => {
     const lenRecipientAddress = 20;
     const depositNonce = 1;
     const gasBenchmarks = [];
-    
+
     const initialRelayers = [relayer1Address, relayer2Address];
     const erc20TokenAmount = 100;
 
@@ -32,23 +32,23 @@ contract('Gas Benchmark - [Vote Proposal]', async (accounts) => {
 
     const vote = (resourceID, depositNonce, depositData, relayer) => BridgeInstance.voteProposal(domainID, depositNonce, resourceID, depositData, { from: relayer });
 
-    before(async () => {
+    before(async() => {
         await Promise.all([
-            BridgeContract.new(domainID, initialRelayers, relayerThreshold, 0, 100).then(instance => BridgeInstance = instance),
+            BridgeContract.new(domainID, initialRelayers, relayerThreshold, 100).then(instance => BridgeInstance = instance),
             ERC20MintableContract.new("token", "TOK").then(instance => ERC20MintableInstance = instance),
         ]);
 
         erc20ResourceID = Helpers.createResourceID(ERC20MintableInstance.address, domainID);
 
         await ERC20HandlerContract.new(BridgeInstance.address).then(instance => ERC20HandlerInstance = instance);
-
+        await BridgeInstance.grantRole("0x462c68c1ae0c4fca4fdc11dd843c86b7aec691fa624c1118775ca3028e1dad71", accounts[0]);
         await Promise.all([
             ERC20MintableInstance.approve(ERC20HandlerInstance.address, erc20TokenAmount, { from: depositerAddress }),
             BridgeInstance.adminSetResource(ERC20HandlerInstance.address, erc20ResourceID, ERC20MintableInstance.address),
         ]);
     });
 
-    it('Should create proposal - relayerThreshold = 2, not finalized', async () => {
+    it('Should create proposal - relayerThreshold = 2, not finalized', async() => {
         const depositData = Helpers.createERCDepositData(
             erc20TokenAmount,
             lenRecipientAddress,
@@ -62,7 +62,7 @@ contract('Gas Benchmark - [Vote Proposal]', async (accounts) => {
         });
     });
 
-    it('Should vote proposal - relayerThreshold = 2, finalized', async () => {
+    it('Should vote proposal - relayerThreshold = 2, finalized', async() => {
         const depositData = Helpers.createERCDepositData(
             erc20TokenAmount,
             lenRecipientAddress,
@@ -76,7 +76,7 @@ contract('Gas Benchmark - [Vote Proposal]', async (accounts) => {
         });
     });
 
-    it('Should vote proposal - relayerThreshold = 1, finalized', async () => {
+    it('Should vote proposal - relayerThreshold = 1, finalized', async() => {
         const newDepositNonce = 2;
         await BridgeInstance.adminChangeRelayerThreshold(1);
 

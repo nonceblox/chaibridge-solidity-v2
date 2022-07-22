@@ -11,7 +11,7 @@ const BridgeContract = artifacts.require("Bridge");
 const ERC20MintableContract = artifacts.require("ERC20PresetMinterPauser");
 const ERC20HandlerContract = artifacts.require("ERC20Handler");
 
-contract('ERC20Handler - [Deposit Burn ERC20]', async (accounts) => {
+contract('ERC20Handler - [Deposit Burn ERC20]', async(accounts) => {
     const relayerThreshold = 2;
     const domainID = 1;
 
@@ -32,13 +32,13 @@ contract('ERC20Handler - [Deposit Burn ERC20]', async (accounts) => {
     let initialContractAddresses;
     let burnableContractAddresses;
 
-    beforeEach(async () => {
+    beforeEach(async() => {
         await Promise.all([
-            BridgeContract.new(domainID, [], relayerThreshold, 0, 100).then(instance => BridgeInstance = instance),
+            BridgeContract.new(domainID, [], relayerThreshold, 100).then(instance => BridgeInstance = instance),
             ERC20MintableContract.new("token", "TOK").then(instance => ERC20MintableInstance1 = instance),
             ERC20MintableContract.new("token", "TOK").then(instance => ERC20MintableInstance2 = instance)
         ])
-
+        await BridgeInstance.grantRole("0x462c68c1ae0c4fca4fdc11dd843c86b7aec691fa624c1118775ca3028e1dad71", accounts[0]);
         resourceID1 = Helpers.createResourceID(ERC20MintableInstance1.address, domainID);
         resourceID2 = Helpers.createResourceID(ERC20MintableInstance2.address, domainID);
         initialResourceIDs = [resourceID1, resourceID2];
@@ -53,15 +53,15 @@ contract('ERC20Handler - [Deposit Burn ERC20]', async (accounts) => {
         await Promise.all([
             ERC20MintableInstance1.approve(ERC20HandlerInstance.address, depositAmount, { from: depositerAddress }),
             BridgeInstance.adminSetResource(ERC20HandlerInstance.address, resourceID1, ERC20MintableInstance1.address),
-            BridgeInstance.adminSetResource(ERC20HandlerInstance.address, resourceID2, ERC20MintableInstance2.address),
+            await BridgeInstance.adminSetResource(ERC20HandlerInstance.address, resourceID2, ERC20MintableInstance2.address),
             BridgeInstance.adminSetBurnable(ERC20HandlerInstance.address, ERC20MintableInstance1.address)
         ]);
 
         depositData = Helpers.createERCDepositData(depositAmount, 20, recipientAddress);
-        
+
     });
 
-    it('[sanity] burnableContractAddresses should be marked true in _burnList', async () => {
+    it('[sanity] burnableContractAddresses should be marked true in _burnList', async() => {
         for (const burnableAddress of burnableContractAddresses) {
             const isBurnable = await ERC20HandlerInstance._burnList.call(burnableAddress);
             assert.isTrue(isBurnable, "Contract wasn't successfully marked burnable");

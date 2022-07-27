@@ -6,11 +6,7 @@ import "../interfaces/IDepositExecute.sol";
 import "./HandlerHelpers.sol";
 import "../ERC20Safe.sol";
 
-/**
-    @title Handles ERC20 deposits and deposit executions.
-    @author ChainSafe Systems.
-    @notice This contract is intended to be used with the Bridge contract.
- */
+
 contract ERC20Handler is IDepositExecute, HandlerHelpers, ERC20Safe {
     /**
         @param bridgeAddress Contract address of previously deployed Bridge.
@@ -19,7 +15,7 @@ contract ERC20Handler is IDepositExecute, HandlerHelpers, ERC20Safe {
         address          bridgeAddress
     ) public HandlerHelpers(bridgeAddress) {
     }
-
+    
     /**
         @notice A deposit is initiatied by making a deposit in the Bridge contract.
         @param resourceID ResourceID used to find address of token to be used for deposit.

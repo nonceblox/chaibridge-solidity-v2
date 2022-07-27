@@ -9,11 +9,7 @@ import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 
 
-/**
-    @title Handles ERC721 deposits and deposit executions.
-    @author ChainSafe Systems.
-    @notice This contract is intended to be used with the Bridge contract.
- */
+
 contract ERC721Handler is IDepositExecute, HandlerHelpers, ERC721Safe {
     using ERC165Checker for address;
 

@@ -130,11 +130,7 @@ contract BasicFeeHandler is IFeeHandler, AccessControl {
         }
     }
 
-    function claimFees(address addrs, uint256 amount) external onlyBridge {
-        (bool success, ) = addrs.call{value: amount}("");
-        require(success, "Fee ether transfer failed");
-        emit FeeDistributed(address(0), addrs, amount);
-    }
+    
 
     modifier onlyAdmin() {
         require(

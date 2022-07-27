@@ -4,7 +4,6 @@ pragma solidity 0.8.11;
 
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./utils/AccessControl.sol";
 import "./utils/Pausable.sol";
 import "./utils/SafeMath.sol";
@@ -21,17 +20,14 @@ import "./interfaces/IFeeHandler.sol";
 
 contract Bridge is Pausable, AccessControl, SafeMath {
     using SafeCast for *;
-    using ECDSA for bytes32;
-
     IFeeHandler public _feeHandler;
-    address public _MPCAddress;
     // Limit relayers number because proposal can fit only so much votes
     uint256 public constant MAX_RELAYERS = 200;
 
     uint8 public _domainID;
     uint8 public _relayerThreshold;
     uint40 public _expiry;
-    uint256 public _relayerFeeClaimThreshold = 1;
+    
 
     enum ProposalStatus {
         Inactive,
@@ -67,8 +63,6 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     // origin domainID => nonces set => used deposit nonces
     mapping(uint8 => mapping(uint256 => uint256)) public usedNonces;
 
-    mapping(address => uint256) public _relayerVoteCount;
-
     event RelayerThresholdChanged(uint256 newThreshold);
     event RelayerAdded(address relayer);
     event RelayerRemoved(address relayer);
@@ -93,21 +87,7 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         bytes32 dataHash
     );
     event FailedHandlerExecution(bytes lowLevelData);
-    event FailedHandlerExecutionMPC(
-        bytes lowLevelData,
-        uint8 originDomainID,
-        uint64 depositNonce
-    );
-
     event FeeHandlerChanged(address newFeeHandler);
-
-    event StartKeygen();
-
-    event EndKeygen();
-
-    event KeyRefresh();
-
-    event Retry(string txHash);
 
     bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
     bytes32 public constant RESOURCE_SETTER_ROLE =
@@ -197,6 +177,7 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         _relayerThreshold = initialRelayerThreshold.toUint8();
         _expiry = expiry.toUint40();
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _setupRole(RESOURCE_SETTER_ROLE, _msgSender());
 
         for (uint256 i; i < initialRelayers.length; i++) {
             grantRole(RELAYER_ROLE, initialRelayers[i]);
@@ -236,14 +217,6 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         require(sender != newAdmin, "Cannot renounce oneself");
         grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
         renounceRole(DEFAULT_ADMIN_ROLE, sender);
-    }
-
-    function adminSetFeeClaimThreshold(uint256 feeClaimThreshold)
-        external
-        onlyAdmin
-    {
-        require(feeClaimThreshold != 0, "0 value not allowed");
-        _relayerFeeClaimThreshold = feeClaimThreshold;
     }
 
     /**
@@ -490,11 +463,7 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         bytes calldata data
     ) external onlyRelayers whenNotPaused {
         address sender = _msgSender();
-        if (_relayerVoteCount[sender] == _relayerFeeClaimThreshold) {
-            _relayerVoteCount[sender] = 1;
-        } else {
-            _relayerVoteCount[sender]++;
-        }
+       
         address handler = _resourceIDToHandlerAddress[resourceID];
         uint72 nonceAndID = (uint72(depositNonce) << 8) | uint72(domainID);
         bytes32 dataHash = keccak256(abi.encodePacked(handler, data));
@@ -643,140 +612,5 @@ contract Bridge is Pausable, AccessControl, SafeMath {
         }
     }
 
-    /**
-        @notice Once MPC address is set, this method can't be invoked anymore.
-        It's used to trigger the belonging process on the MPC side which also handles keygen function calls order.
-     */
-    function startKeygen() external onlyAdmin {
-        require(_MPCAddress == address(0), "MPC address is already set");
-        emit StartKeygen();
-    }
-
-    /**
-        @notice This method can be called only once, after the MPC address is set Bridge is unpaused.
-        It's used to trigger the belonging process on the MPC side which also handles keygen function calls order.
-        @param MPCAddress Address that will be set as MPC address.
-     */
-    function endKeygen(address MPCAddress) external onlyAdmin {
-        require(MPCAddress != address(0), "MPC address can't be null-address");
-        require(_MPCAddress == address(0), "MPC address can't be updated");
-        _MPCAddress = MPCAddress;
-        _unpause(_msgSender());
-        emit EndKeygen();
-    }
-
-    /**
-        @notice It's used to trigger the belonging process on the MPC side.
-        It's used to trigger the belonging process on the MPC side which also handles keygen function calls order.
-     */
-    function refreshKey() external onlyAdmin {
-        emit KeyRefresh();
-    }
-
-    /**
-        @notice This method is used to trigger the process for retrying failed deposits on the MPC side.
-        @param txHash Transaction hash which contains deposit that should be retried
-     */
-    function retry(string memory txHash) external {
-        emit Retry(txHash);
-    }
-
-    function isProposalExecuted(uint8 domainID, uint256 depositNonce)
-        public
-        view
-        returns (bool)
-    {
-        return
-            usedNonces[domainID][depositNonce / 256] &
-                (1 << (depositNonce % 256)) !=
-            0;
-    }
-
-    /**
-        @notice Executes a deposit proposal using a specified handler contract (only if signature is signed by MPC).
-        @param originDomainID ID of chain deposit originated from.
-        @param resourceID ResourceID to be used when making deposits.
-        @param depositNonce ID of deposit generated by origin Bridge contract.
-        @param data Data originally provided when deposit was made.
-        @param signature bytes memory signature composed of MPC key shares
-        @notice Emits {ProposalExecution} event.
-     */
-    function executeProposalMPC(
-        uint8 originDomainID,
-        uint64 depositNonce,
-        bytes calldata data,
-        bytes32 resourceID,
-        bytes calldata signature
-    ) public whenNotPaused {
-        require(
-            isProposalExecuted(originDomainID, depositNonce) != true,
-            "Deposit with provided nonce already executed"
-        );
-
-        address signer = keccak256(
-            abi.encode(
-                originDomainID,
-                _domainID,
-                depositNonce,
-                data,
-                resourceID
-            )
-        ).recover(signature);
-        require(signer == _MPCAddress, "Invalid message signer");
-
-        address handler = _resourceIDToHandlerAddress[resourceID];
-        bytes32 dataHash = keccak256(abi.encodePacked(handler, data));
-
-        IDepositExecute depositHandler = IDepositExecute(handler);
-
-        usedNonces[originDomainID][depositNonce / 256] |=
-            1 <<
-            (depositNonce % 256);
-
-        // Reverts for every handler except GenericHandler
-        depositHandler.executeProposal(resourceID, data);
-
-        emit ProposalExecution(originDomainID, depositNonce, dataHash);
-    }
-
-    function calulateDueAmount(uint8 destDomainID)
-        public
-        view
-        returns (uint256)
-    {
-        require(
-            address(_feeHandler) != address(0),
-            "fee handler not set by admin"
-        );
-        uint256 fee = 0;
-        (fee, ) = _feeHandler.calculateFee(msg.sender, _domainID, destDomainID);
-        fee = (fee / _relayerThreshold) * _relayerFeeClaimThreshold;
-        return fee;
-    }
-
-    function relayerClaimfees(uint8 destDomainID) external onlyRelayers {
-        address sender = _msgSender();
-        require(
-            address(_feeHandler) != address(0),
-            "fee handler not set by admin"
-        );
-        require(
-            _relayerVoteCount[sender] == _relayerFeeClaimThreshold,
-            "Relayer yet to reach threshold"
-        );
-        uint256 fee = calulateDueAmount(destDomainID);
-        require(
-            address(_feeHandler).balance >= fee,
-            "fee handler not have enough balance"
-        );
-        _feeHandler.claimFees(sender, fee);
-    }
-
-    function relayerVoteCount() external view returns (bool) {
-        address sender = _msgSender();
-        if (_relayerVoteCount[sender] == _relayerFeeClaimThreshold) {
-            return true;
-        }
-        return false;
-    }
+   
 }

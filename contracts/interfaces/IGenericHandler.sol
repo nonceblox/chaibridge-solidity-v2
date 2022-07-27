@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.11;
 
-/**
-    @title Interface for handler that handles generic deposits and deposit executions.
-    @author ChainSafe Systems.
- */
+
 interface IGenericHandler {
     /**
         @notice Correlates {resourceID} with {contractAddress}, {depositFunctionSig}, and {executeFunctionSig}.

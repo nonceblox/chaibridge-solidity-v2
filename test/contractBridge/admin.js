@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 ChainSafe Systems
+ * 
  * SPDX-License-Identifier: LGPL-3.0-only
  */
 const TruffleAssert = require('truffle-assertions');
@@ -183,7 +183,7 @@ contract('Bridge - [admin]', async accounts => {
         await TruffleAssert.reverts(feehandlerInstance.changeFee(1, 2, 0), "Current fee is equal to new fee");
     });
 
-  
+
 
     // Withdraw
 

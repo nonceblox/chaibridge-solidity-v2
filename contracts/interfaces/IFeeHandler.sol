@@ -2,10 +2,7 @@
 
 pragma solidity 0.8.11;
 
-/**
-    @title Interface to be used with fee handlers.
-    @author ChainSafe Systems.
- */
+
 interface IFeeHandler {
 
     /**
@@ -58,5 +55,4 @@ interface IFeeHandler {
      */
     function calculateFee(address sender, uint8 fromDomainID, uint8 destinationDomainID) external view returns(uint256, address);
     
-    function claimFees(address addrs,uint256 amount) external ;
 }
